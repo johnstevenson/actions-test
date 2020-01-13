@@ -4,16 +4,18 @@ on:
   - pull_request
   - push
 name: add-path
-## comment
+# comment
 jobs:
   test:
     runs-on: windows-latest
     steps:
 
+      - name: Create folder
+        run: mkdir C:\actions-bin
+        shell: cmd
+
       - name: Create batch script
-        run: |
-          mkdir C:\actions-bin
-          echo @echo Called from PATH > C:\actions-bin\test-path.bat
+        run: echo @echo Called from PATH > C:\actions-bin\test-path.bat
         shell: cmd
 
       - name: Update path
