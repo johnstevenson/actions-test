@@ -1,0 +1,24 @@
+# https://help.github.com/en/categories/automating-your-workflow-with-github-actions
+
+on:
+  - pull_request
+  - push
+name: add-path
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+
+      - name: Create batch script
+        run: |
+          mkdir C:\actions-bin
+          echo @echo Called from PATH > C:\actions-bin\test-path.bat
+        shell: cmd
+
+      - name: Update path
+        run: echo "::add-path::C:\actions-bin"
+
+      - name: Run
+        run: test-path
+        shell: cmd
