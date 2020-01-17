@@ -44,6 +44,6 @@ jobs:
 
       - name: Show path from usr/bin/bash
         run: |
-        set bash="C:\Program Files\Git\usr\bin\bash.exe"
-        %bash% -c 'echo $PATH | tr ":" "\n"'
+          set bash="C:\Program Files\Git\usr\bin\bash.exe"
+          %bash% -c 'echo $PATH | tr ":" "\n"'
         shell: cmd
