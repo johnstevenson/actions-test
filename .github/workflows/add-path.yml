@@ -47,3 +47,7 @@ jobs:
           set bash="C:\Program Files\Git\usr\bin\bash.exe"
           %bash% -c 'echo $PATH | tr ":" "\n"'
         shell: cmd
+
+      - name: Show mingw location
+        run: where make
+        shell: cmd
