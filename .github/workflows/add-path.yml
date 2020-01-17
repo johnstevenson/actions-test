@@ -24,8 +24,14 @@ jobs:
       - name: Run
         run: test-path
         shell: cmd
-        
-      - name: Show path
+
+      - name: Show path from Powershell
         run: echo $($env:path -split ";")
 
+      - name: Show path from Bash
+        run: echo $PATH | tr ":" "\n"
+        shell: bash
 
+      - name: Show path from Cmd
+        run: echo %PATH:;= & echo.%
+        shell: cmd

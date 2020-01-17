@@ -8,6 +8,9 @@ cache:
     - $HOME/.composer/cache
     - vendor
 
+env:
+  - PATH=$HOME/.composer/vendor/bin:$PATH
+
 jobs:
   include:
     - php: 7.3
