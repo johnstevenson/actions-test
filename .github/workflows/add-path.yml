@@ -37,9 +37,9 @@ jobs:
         shell: cmd
 
       - name: Show path from bin/bash
-        run: C:\Program Files\Git\bin\bash.exe -c 'echo $PATH | tr ":" "\n"'
+        run: "C:\Program Files\Git\bin\bash.exe" -c 'echo $PATH | tr ":" "\n"'
         shell: cmd
 
       - name: Show path from usr/bin/bash
-        run: C:\Program Files\Git\usr\bin\bash.exe -c 'echo $PATH | tr ":" "\n"'
+        run: "C:\Program Files\Git\usr\bin\bash.exe" -c 'echo $PATH | tr ":" "\n"'
         shell: cmd
