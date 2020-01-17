@@ -26,6 +26,6 @@ jobs:
         shell: cmd
         
       - name: Show path
-        run: echo %Path%
-        shell: cmd
-        
+        run: echo $env:path -split ";"
+
+
