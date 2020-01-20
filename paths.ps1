@@ -83,15 +83,8 @@ Write-Output $($pathTable | Format-Table -Property PathEntry, Status -AutoSize)
 
 $level = 0;
 
-foreach ($path in $pathList) {
+foreach ($path in $validPaths) {
     ++$level
-
-    if (-Not (Test-Path -Path $path)) {
-        continue
-    }
-
-    # Normalize path
-    $path = Resolve-Path -Path $path
 
     $fileList = Get-ChildItem -Path $path -File -Force
 
@@ -101,10 +94,10 @@ foreach ($path in $pathList) {
         }
 
         $shebang = ""
-        $filePath = $(Join-Path $path $file)
+        $filePath = $(Join-Path $path $file.Name)
         $matched = $false
 
-        if ($file.Extension -eq "" -and $native -eq $false) {
+        if ($file.Extension -eq "") {
             $line = Get-Content $filePath -First 1
 
             if ($line.StartsWith("#!/")) {

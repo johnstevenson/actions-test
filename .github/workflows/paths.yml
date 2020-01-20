@@ -16,8 +16,8 @@ jobs:
 
       - name: Show native paths
         run: .\paths.ps1
-        shell: powershell
+        shell: pwsh
 
       - name: Show Git Bash paths
-        run: powershell -File paths.ps1
+        run: pwsh -File paths.ps1
         shell: bash
