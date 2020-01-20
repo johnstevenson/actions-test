@@ -9,9 +9,13 @@ jobs:
   test:
     runs-on: windows-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
 
       - name: Show native paths
-        run: ./paths.ps1
+        run: .\paths.ps1
         shell: pwsh
 
       - name: Show Git Bash paths
