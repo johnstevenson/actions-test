@@ -83,16 +83,15 @@ Write-Output $($pathTable | Format-Table -Property PathEntry, Status -AutoSize)
 
 $level = 0;
 
-foreach ($path in $validPaths) {
+foreach ($path in $pathList) {
     ++$level
-
-    # Normalize path
-    $path = Resolve-Path -Path $path
 
     if (-Not (Test-Path -Path $path)) {
         continue
     }
 
+    # Normalize path
+    $path = Resolve-Path -Path $path
 
     $fileList = Get-ChildItem -Path $path -File -Force
 
