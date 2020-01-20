@@ -1,0 +1,18 @@
+# https://help.github.com/en/categories/automating-your-workflow-with-github-actions
+
+on:
+  - pull_request
+  - push
+name: add-path
+# comment
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+
+      - name: Show native paths
+        run: ./paths.ps1
+
+      - name: Show Git Bash paths
+        run: powershell -File paths.ps1
+        shell: bash

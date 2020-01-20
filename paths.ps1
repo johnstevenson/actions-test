@@ -7,7 +7,11 @@ $pathExt = @(".COM", ".EXE", ".BAT", ".CMD")
 
 $table = @{}
 $strict = $false
+$native = $true
 
+function CheckPath([string] $path) {
+
+}
 function Add-TableEntry([string] $baseName, [string] $filePath, [string] $shebang) {
     $key = $baseName.ToLower()
 
@@ -38,14 +42,57 @@ function Add-TableEntry([string] $baseName, [string] $filePath, [string] $sheban
     }
 }
 
+$pathTable = New-Object System.Collections.ArrayList
+$allPaths = New-Object System.Collections.ArrayList
+$validPaths = @()
+
+foreach ($item in $pathList) {
+
+    [string]$path = $item
+    $errors = @()
+
+    if (-Not (Test-Path -Path $path)) {
+        $errors += "Missing"
+        $path = $path -replace '/', '\'
+    } else {
+        # Normalize path
+        $path = Resolve-Path -Path $path
+    }
+
+    if ($allPaths -contains $path) {
+        $errors += "Duplicate"
+    }
+
+    $allPaths.Add($path) | Out-Null
+
+    if ($errors.Length -eq 0) {
+        $status = "OK"
+    } else {
+        $status = $errors -join "/"
+    }
+
+    $row = New-Object PSObject -Property @{"PathEntry" = $path; Status = $status}
+    $pathTable.Add($row) | Out-Null
+
+    if ($status -eq "OK") {
+        $validPaths += $path
+    }
+}
+
+Write-Output $($pathTable | Format-Table -Property PathEntry, Status -AutoSize)
+
 $level = 0;
 
-foreach ($path in $pathList) {
+foreach ($path in $validPaths) {
     ++$level
+
+    # Normalize path
+    $path = Resolve-Path -Path $path
 
     if (-Not (Test-Path -Path $path)) {
         continue
     }
+
 
     $fileList = Get-ChildItem -Path $path -File -Force
 
@@ -58,7 +105,7 @@ foreach ($path in $pathList) {
         $filePath = $(Join-Path $path $file)
         $matched = $false
 
-        if ($file.Extension -eq "") {
+        if ($file.Extension -eq "" -and $native -eq $false) {
             $line = Get-Content $filePath -First 1
 
             if ($line.StartsWith("#!/")) {
