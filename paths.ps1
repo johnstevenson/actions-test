@@ -86,19 +86,18 @@ $level = 0;
 foreach ($path in $validPaths) {
     ++$level
 
-    $fileList = Get-ChildItem -Path $path -File -Force
+    $fileList = Get-ChildItem -Path $path -File
 
     foreach ($file in $fileList) {
         if ($file.BaseName.StartsWith(".") -Or $file.BaseName -match "\s") {
             continue
         }
-        Write-Output $file.Name
+
         $shebang = ""
-        $filePath = $(Join-Path $path $file.Name)
         $matched = $false
 
         if ($file.Extension -eq "") {
-            $line = Get-Content -Path $filePath -First 1
+            $line = Get-Content -Path $file.FullName -First 1
 
             if ($line.StartsWith("#!/")) {
                 $matched = $true
@@ -110,7 +109,7 @@ foreach ($path in $validPaths) {
         }
 
         if ($matched) {
-            Add-TableEntry $file.BaseName $filePath $shebang
+            Add-TableEntry $file.BaseName $file.FullName $shebang
         }
     }
 
