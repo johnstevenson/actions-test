@@ -99,7 +99,7 @@ foreach ($path in $validPaths) {
         if ($file.Extension -eq "") {
             $line = Get-Content -Path $file.FullName -First 1
 
-            if ($line.StartsWith("#!/")) {
+            if ($null -ne $line -and $line.StartsWith("#!/")) {
                 $matched = $true
                 $shebang = $line
             }
