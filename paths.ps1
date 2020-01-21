@@ -92,13 +92,13 @@ foreach ($path in $validPaths) {
         if ($file.BaseName.StartsWith(".") -Or $file.BaseName -match "\s") {
             continue
         }
-
+        Write-Output $file.Name
         $shebang = ""
         $filePath = $(Join-Path $path $file.Name)
         $matched = $false
 
         if ($file.Extension -eq "") {
-            $line = Get-Content $filePath -First 1
+            $line = Get-Content -Path $filePath -First 1
 
             if ($line.StartsWith("#!/")) {
                 $matched = $true
