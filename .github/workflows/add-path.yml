@@ -51,3 +51,7 @@ jobs:
       - name: Show mingw location
         run: where make
         shell: cmd
+
+      - name: Show plaform
+        run: echo $PSVersionTable.Platform
+        shell: pwsh
