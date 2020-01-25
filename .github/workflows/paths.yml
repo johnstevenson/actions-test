@@ -23,7 +23,7 @@ jobs:
         shell: bash
 
       - name: Show Git Bash paths from bin
-        run: "%PROGRAMFILES%\Git\bin\bash.exe" -c 'pwsh -File paths.ps1'
+        run: "%PROGRAMFILES%\\Git\\bin\\bash.exe" -c 'pwsh -File paths.ps1'
         shell: cmd
 
       - name: Upload reports
