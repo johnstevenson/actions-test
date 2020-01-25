@@ -22,7 +22,6 @@ jobs:
         run: pwsh -File paths.ps1
         shell: bash
 
-
       - name: Show Git bin paths
         run: "%PROGRAMFILES%/Git/bin/bash.exe" -c 'pwsh -File paths.ps1'
         shell: cmd
