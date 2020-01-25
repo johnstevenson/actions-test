@@ -21,3 +21,13 @@ jobs:
       - name: Show Git Bash paths
         run: pwsh -File paths.ps1
         shell: bash
+
+      - name: Show Git Bash paths from bin
+        run: "%PROGRAMFILES%\Git\bin\bash.exe" -c 'pwsh -File paths.ps1'
+        shell: cmd
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: logs

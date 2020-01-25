@@ -1,147 +1,114 @@
-$pathList = $env:Path -Split ";"
-#Write-Output $pathList
+$ErrorActionPreference = 'Stop';
 
-$pathExt = $env:PATHEXT -Split ";"
-$pathExt = @(".COM", ".EXE", ".BAT", ".CMD")
-#Write-Output $pathExt
+$workDir = Split-Path $MyInvocation.MyCommand.Definition
+. $workDir\path-helpers.ps1
+
+# Set global $IsWindows if we are in native powershell
+if ($null -eq $IsWindows) {
+    $global:IsWindows = $true;
+    $global:IsLinux = $global:IsMacOs = $false
+}
+
+$app = @{
+    Module = '';
+    IsUnixy = $false;
+    HasFileStat = $false;
+    Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
+    Report = '';
+}
+
+$appInfo = Initialize-App $workDir $app
+
+# Output intro
+Write-Output "Generating PATH report for:"
+$out = Get-OutputList $appInfo
+Set-Content -Path $app.Report -Value $out
+Write-Output $out
+
+# Get path entries
+$pathStats = [ordered]@{
+    Entries = 0;
+    Valid = 0
+    Missing = 0;
+    Duplicates = 0;
+}
+
+$pathData = New-Object System.Collections.ArrayList
+$validPaths = Get-ValidPaths $pathData $pathStats
+
+# Output path entries
+$title = 'Entries in PATH environment'
+$out = Get-OutputList $pathStats $title
+$data = ($pathData | Format-Table -Property Path, Status -AutoSize | Out-String)
+$out += Get-OutputString $data
+Add-Content -Path $app.Report -Value $out
+Write-Output $out
+
+if ($IsWindows) {
+    Set-Alias -Name Test-IsExecutable -Value Test-IsExecutableOnWindows
+} else {
+
+    if (-not $app.HasFileStat) {
+        $title = 'Commands found in PATH entries'
+        $data = "None (Unix file stats not available in Powershell $($app.Powershell))"
+        $out = Get-OutputString $data $title
+        Write-Output $out
+        Add-Content -Path $app.Report -Value $out
+        exit 0
+    }
+
+    Set-Alias -Name Test-IsExecutable -Value Test-IsExecutableOnUnixy
+}
+
+# Get command entries
+$cmdStats = [ordered]@{
+    Commands = 0;
+    Duplicates = 0;
+}
 
 $table = @{}
-$strict = $false
-$native = $true
-
-function CheckPath([string] $path) {
-
-}
-function Add-TableEntry([string] $baseName, [string] $filePath, [string] $shebang) {
-    $key = $baseName.ToLower()
-
-    if ($table.Contains($key)) {
-        $item = $table.Get_Item($key)
-
-        if ($filePath -eq $item.Path) {
-            return
-        }
-
-        if ($strict) {
-            $existingFile = Split-Path $item.Path -Leaf
-            $newFile = Split-Path $filePath -Leaf
-
-            if ($existingFile -ne $newFile) {
-                return
-            }
-        }
-
-        ++$item.Count
-        $item.Dupes += $filePath
-        $table.Set_Item($key, $item)
-
-
-    } else {
-        $value = @{ Path = $filePath; Count = 1; Dupes = @() }
-        $table.Add($key, $value)
-    }
-}
-
-$pathTable = New-Object System.Collections.ArrayList
-$allPaths = New-Object System.Collections.ArrayList
-$validPaths = @()
-
-foreach ($item in $pathList) {
-
-    [string]$path = $item
-    $errors = @()
-
-    if (-Not (Test-Path -Path $path)) {
-        $errors += "Missing"
-        $path = $path -replace '/', '\'
-    } else {
-        # Normalize path
-        $path = Resolve-Path -Path $path
-    }
-
-    if ($allPaths -contains $path) {
-        $errors += "Duplicate"
-    }
-
-    $allPaths.Add($path) | Out-Null
-
-    if ($errors.Length -eq 0) {
-        $status = "OK"
-    } else {
-        $status = $errors -join "/"
-    }
-
-    $row = New-Object PSObject -Property @{"PathEntry" = $path; Status = $status}
-    $pathTable.Add($row) | Out-Null
-
-    if ($status -eq "OK") {
-        $validPaths += $path
-    }
-}
-
-Write-Output $($pathTable | Format-Table -Property PathEntry, Status -AutoSize)
-
-$level = 0;
+$pathExt = @('.COM', '.EXE', '.BAT', '.CMD')
 
 foreach ($path in $validPaths) {
-    ++$level
 
     $fileList = Get-ChildItem -Path $path -File
 
     foreach ($file in $fileList) {
-        if ($file.BaseName.StartsWith(".") -Or $file.BaseName -match "\s") {
+
+        if ($file.BaseName.StartsWith('.') -or $file.BaseName -match '\s') {
             continue
         }
 
-        $shebang = ""
-        $matched = $false
-
-        if ($file.Extension -eq "") {
-            $line = Get-Content -Path $file.FullName -First 1
-
-            if ($null -ne $line -and $line.StartsWith("#!/")) {
-                $matched = $true
-                $shebang = $line
-            }
-
-        } elseif ($pathExt -contains $file.Extension) {
-            $matched = $true
-        }
-
-        if ($matched) {
-            Add-TableEntry $file.BaseName $file.FullName $shebang
+        if (Test-IsExecutable $file $pathExt $app) {
+            $cmdStats.Duplicates += Add-DataEntry $table $file
         }
     }
-
-    if ($level -eq 100) {
-        break;
-    }
-
 }
 
-$out = $table.GetEnumerator() | Sort-Object -Property key
-$out = $table.GetEnumerator() | Sort-Object -Property key | Where-Object {$_.Value.Count -gt 1} | ForEach-Object {
+$cmdStats.Commands = $table.Keys.Count
 
-    $cmd = $_.Key
-
-    if ($cmd.Length -gt 25) {
-        $cmd = $cmd.Substring(0, 22) + "..."
-    }
-
-    $format = "{0,-25} {1,-5} {2}"
-    $lines = $format -f $cmd, $("({0})" -f $_.Value.Count), $_.Value.Path
-
-    foreach ($dupe in $_.Value.Dupes) {
-        $lines += "`n" + $($format -f "", "", $dupe)
-    }
-
-    $lines
-
-    #"{0,-20} ({1})   {2}, {3}" -f $_.Key, $_.Value.Count, $_.Value.Path, $($_.Value.Dupes -join ", ")
-
-} | Out-String
-#$out = $table.GetEnumerator() | Sort-Object -Property key |  ForEach-Object {$_.Key} | Out-String
-
+# Output command entries
+$title = 'Commands found in PATH entries'
+$out = Get-OutputList $cmdStats $title
+Add-Content -Path $app.Report -Value $out
 Write-Output $out
-Set-Content -Path 'result.txt' -Value $out
-#Write-Output $table
+
+# Output command duplicates
+if ($cmdStats.Duplicates) {
+    $title = $title = "Duplicate commands ($($cmdStats.Duplicates))"
+    $data = ($table.GetEnumerator() | Sort-Object -Property key |
+        Where-Object { $_.Value.Count -gt 1 } | ForEach-Object {
+        Format-PathList } | Out-String)
+
+    $out = Get-OutputString $data $title
+    Add-Content -Path $app.Report -Value $out
+    Write-Output $out
+}
+
+$title = "All commands ($($cmdStats.Commands))"
+Write-Output (Get-OutputString "See: $($app.Report)" $title)
+
+# Output all commands to report file
+$data = $table.GetEnumerator() | Sort-Object -Property key | ForEach-Object { Format-PathList} | Out-String
+$out = $out = Get-OutputString $data $title
+Add-Content -Path $app.Report -Value $out
