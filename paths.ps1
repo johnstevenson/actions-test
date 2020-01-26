@@ -20,6 +20,7 @@ $app = @{
 $appInfo = Initialize-App $workDir $app
 
 # Output intro
+Write-Output $app.Report
 Write-Output "Generating PATH report for:"
 $out = Get-OutputList $appInfo
 Set-Content -Path $app.Report -Value $out
