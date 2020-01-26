@@ -118,7 +118,7 @@ function Get-ReportName([string]$name) {
         $prefix = 'mac'
     }
 
-    return "$prefix-$name-paths.txt"
+    return "$prefix-$name.txt"
 }
 
 function Get-ValidPaths([System.Collections.ArrayList]$data, [object]$stats) {

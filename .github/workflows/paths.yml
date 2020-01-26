@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-    name: ${{ matrix.os }} PATH
+    name: PATH on ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -27,7 +27,7 @@ jobs:
         run: pwsh -File paths.ps1
         shell: bash
 
-      - name: Show paths from Git bin bash
+      - name: Show paths from Git\\bin\\bash (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           set bash="C:\Program Files\Git\bin\bash.exe"
