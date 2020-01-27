@@ -96,7 +96,14 @@ foreach ($path in $validPaths) {
         # Links - only use soft links if we have any
         $entryAdded = $false
 
-        if ($file.LinkType -eq 'SymbolicLink') {
+        if ($IsWindows) {
+            $followLinks = ($file.LinkType -eq 'SymbolicLink')
+        } else {
+            $followLinks = ($null -ne $file.LinkType)
+        }
+
+        #if ($file.LinkType -eq 'SymbolicLink') {
+        if ($followLinks) {
             foreach ($target in $file.Target) {
                 $targetFile = Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
 
