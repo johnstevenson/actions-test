@@ -12,8 +12,9 @@ if ($null -eq $IsWindows) {
 $app = @{
     Module = '';
     IsUnixy = $false;
-    HasFileStat = $false;
     Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
+    UnixHasStat = $false
+    UnixNoStat = $false
     Report = '';
 }
 
@@ -45,22 +46,6 @@ $out += Get-OutputString $data
 Add-Content -Path $app.Report -Value $out
 Write-Output $out
 
-if ($IsWindows) {
-    Set-Alias -Name Test-IsExecutable -Value Test-IsExecutableOnWindows
-} else {
-
-    if (-not $app.HasFileStat) {
-        $title = 'Commands found in PATH entries'
-        $data = "None (Unix file stats not available in Powershell $($app.Powershell))"
-        $out = Get-OutputString $data $title
-        Write-Output $out
-        Add-Content -Path $app.Report -Value $out
-        exit 0
-    }
-
-    Set-Alias -Name Test-IsExecutable -Value Test-IsExecutableOnUnixy
-}
-
 # Get command entries
 $cmdStats = [ordered]@{
     Commands = 0;
@@ -72,6 +57,17 @@ $pathExt = @('.COM', '.EXE', '.BAT', '.CMD')
 
 foreach ($path in $validPaths) {
 
+    if (-not $IsWindows -and $app.UnixNoStat) {
+        $cmdx = @()
+        $lines = ls -l $path
+
+        foreach ($line in $lines) {
+            if ($line -match '^[-l].{8}x') {
+                $cmdx += ($line -split '\s+')[8]
+            }
+        }
+    }
+
     $fileList = Get-ChildItem -Path $path -File
 
     foreach ($file in $fileList) {
@@ -80,8 +76,39 @@ foreach ($path in $validPaths) {
             continue
         }
 
-        if (Test-IsExecutable $file $pathExt $app) {
-            $cmdStats.Duplicates += Add-DataEntry $table $file
+        $command = $file.BaseName
+
+        # We only test the file, rather than any links
+        if ($IsWindows) {
+            $executable = Test-IsExecutableOnWindows $file $pathExt $app
+        } else {
+            if ($app.UnixHasStat) {
+                $executable = $file.UnixMode.EndsWith('x')
+            } else {
+                $executable = $cmdx.Contains($file.Name)
+            }
+        }
+
+        if (-not $executable) {
+            continue
+        }
+
+        # Links - only use soft links if we have any
+        $entryAdded = $false
+
+        if ($file.LinkType -eq 'SymbolicLink') {
+            foreach ($target in $file.Target) {
+                $targetFile = Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
+
+                if ($targetFile) {
+                    $cmdStats.Duplicates += Add-DataEntry $table $command $targetFile
+                    $entryAdded = $true
+                }
+            }
+        }
+
+        if (-not $entryAdded) {
+            $cmdStats.Duplicates += Add-DataEntry $table $command $file
         }
     }
 }
@@ -111,5 +138,5 @@ Write-Output (Get-OutputString "See: $($app.Report)" $title)
 
 # Output all commands to report file
 $data = $table.GetEnumerator() | Sort-Object -Property key | ForEach-Object { Format-PathList} | Out-String
-$out = $out = Get-OutputString $data $title
+$out = Get-OutputString $data $title
 Add-Content -Path $app.Report -Value $out

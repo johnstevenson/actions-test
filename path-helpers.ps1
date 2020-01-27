@@ -1,23 +1,27 @@
-function Add-DataEntry([object] $data, [System.IO.FileInfo]$file) {
+function Add-DataEntry([object]$data, [string]$command, [System.IO.FileInfo]$file) {
 
     $duplicates = 0
-    $key = $file.BaseName.ToLower()
+    $key = $command
+
+    if ($IsWindows) {
+        $key = $key.ToLower()
+    }
 
     if ($data.Contains($key)) {
         $item = $data.Get_Item($key)
-        $existingPath = Split-Path -LiteralPath $item.Path
 
-        if ($existingPath -eq $file.DirectoryName) {
+        if ($item.Unique.Contains($file.DirectoryName)) {
             return $duplicates
         }
 
         ++$item.Count
         $item.Dupes += $file.FullName
+        $item.Unique += $file.DirectoryName
         $data.Set_Item($key, $item)
         $duplicates = 1
 
     } else {
-        $value = @{ Path = $file.FullName; Count = 1; Dupes = @() }
+        $value = @{ Path = $file.FullName; Count = 1; Dupes = @(); Unique = @($file.DirectoryName) }
         $data.Add($key, $value)
     }
 
@@ -175,7 +179,9 @@ function Initialize-App([string]$basePath, [object]$config) {
     $config.Module = $pathInfo.FullName
     $config.Report = $pathInfo.BaseName.ToLower()
     $config.IsUnixy = $false
-    $config.HasFileStat = $false
+    $config.UnixHasStat = $false
+    $config.UnixNoStat = $false
+
     $procList.RemoveAt(0);
 
     if ($IsWindows) {
@@ -185,7 +191,8 @@ function Initialize-App([string]$basePath, [object]$config) {
             Test-ForWinNative $procList $config
         }
     } else {
-        $config.HasFileStat = ($null -ne $pathInfo.UnixMode)
+        $config.UnixHasStat = ($null -ne $pathInfo.UnixMode)
+        $config.UnixNoStat = (-not $config.UnixHasStat)
         Test-ForUnix $procList $config
     }
 
@@ -194,17 +201,15 @@ function Initialize-App([string]$basePath, [object]$config) {
 
     $stats = [ordered]@{
         Module = $config.Module;
-        Platform = [System.Environment]::OSVersion.Platform;
+        Platform = "$($PSVersionTable.Platform)";
+        OS = "$($PSVersionTable.OS)";
         IsUnixy = $config.IsUnixy;
-        HasFileStat = $config.HasFileStat;
         Powershell = $config.Powershell
         ReportName = $reportName;
     }
 
     if (-not $IsWindows) {
         $stats.Remove('IsUnixy')
-    } else {
-        $stats.Remove('HasFileStat')
     }
 
     return $stats
