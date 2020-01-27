@@ -230,20 +230,11 @@ function Resolve-PathEx([string]$path, [System.Collections.ArrayList]$errors) {
     (Join-Path $path $slash).TrimEnd($slash)
 }
 
-function Test-IsExecutableOnUnixy([System.IO.FileInfo]$file, [array]$pathExt, [object]$config) {
-
-    if (-not $file.Extension) {
-        return $false
-    }
-
-    return ($file.UnixMode).EndsWith('x')
-}
-
-function Test-IsExecutableOnWindows([System.IO.FileInfo]$file, [array]$pathExt, [object]$config) {
+function Test-IsExecutableOnWindows([System.IO.FileInfo]$file, [array]$pathExt, [object]$isUnixy) {
 
     if (-not $file.Extension) {
 
-        if (-not $config.IsUnixy) {
+        if (-not $isUnixy) {
             return $false;
         }
 
