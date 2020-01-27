@@ -70,6 +70,77 @@ function Get-OutputString([string]$data, [string]$caption = '') {
     return $caption + $eol + $data.Trim() + $eol + $eol
 }
 
+function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, [object]$config) {
+
+    $data = @{}
+    $pathExt = @('.COM', '.EXE', '.BAT', '.CMD')
+    $exeList = New-Object System.Collections.ArrayList
+
+    foreach ($path in $paths) {
+
+        if (-not $IsWindows -and $config.UnixNoStat) {
+            Get-UnixExecutables $path $exeList
+        }
+
+        $fileList = Get-ChildItem -Path $path -File
+
+        foreach ($file in $fileList) {
+
+            if ($file.Name.StartsWith('.') -or $file.Name -match '\s') {
+                continue
+            }
+
+            # We only test the file is executable, rather than any links
+            if ($IsWindows) {
+                $executable = Test-IsExecutableOnWindows $file $pathExt $config.IsUnixy
+            } else {
+
+                if ($file.Name.Contains('.')) {
+                    continue
+                }
+
+                if ($config.UnixHasStat) {
+                    $executable = $file.UnixMode.EndsWith('x')
+                } else {
+                    $executable = $exeList.Contains($file.Name)
+                }
+            }
+
+            if (-not $executable) {
+                continue
+            }
+
+            $command = $file.BaseName
+            $entryAdded = $false
+
+            # Links - only use soft links on Windows
+            if ($IsWindows) {
+                $followLinks = ($file.LinkType -eq 'SymbolicLink')
+            } else {
+                $followLinks = ($null -ne $file.LinkType)
+            }
+
+            if ($followLinks) {
+                foreach ($target in $file.Target) {
+                    $linkTarget = Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
+
+                    if ($linkTarget) {
+                        $cmdStats.Duplicates += Add-DataEntry $data $command $linkTarget
+                        $entryAdded = $true
+                    }
+                }
+            }
+
+            if (-not $entryAdded) {
+                $stats.Duplicates += Add-DataEntry $data $command $file
+            }
+        }
+    }
+
+    $stats.Commands = $data.Keys.Count
+    return $data
+}
+
 function Get-ProcessList([System.Collections.ArrayList]$list) {
 
     $parentId = $null
@@ -123,6 +194,19 @@ function Get-ReportName([string]$name) {
     }
 
     return "$prefix-$name.txt"
+}
+
+function Get-UnixExecutables([string]$path, [System.Collections.ArrayList]$names) {
+
+    # Use ls to get file name and permissions
+    $names.Clear()
+    $lines = ls -l $path
+
+    foreach ($line in $lines) {
+        if ($line -match '^[-l].{8}x') {
+            $names.Add(($line -split '\s+')[8]) | Out-Null
+        }
+    }
 }
 
 function Get-ValidPaths([System.Collections.ArrayList]$data, [object]$stats) {

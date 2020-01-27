@@ -1,8 +1,9 @@
 # https://help.github.com/en/categories/automating-your-workflow-with-github-actions
 
 on:
-  - pull_request
-  - push
+  - gollum
+  #- pull_request
+  #- push
 name: add-path
 # comment
 jobs:

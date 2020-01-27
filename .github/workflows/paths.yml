@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Show paths from Powershell
+      - name: Show paths from pwsh
         run: .\paths.ps1
         shell: pwsh
 
@@ -27,7 +27,7 @@ jobs:
         run: pwsh -File paths.ps1
         shell: bash
 
-      - name: Show paths from Git\bin\bash (Windows)
+      - name: Show paths from bash (Windows Git\bin\bash)
         if: matrix.os == 'windows-latest'
         run: |
           set bash="C:\Program Files\Git\bin\bash.exe"

@@ -53,75 +53,7 @@ $cmdStats = [ordered]@{
     Duplicates = 0;
 }
 
-$table = @{}
-$pathExt = @('.COM', '.EXE', '.BAT', '.CMD')
-$cmdx = New-Object System.Collections.ArrayList
-
-foreach ($path in $validPaths) {
-
-    if (-not $IsWindows -and $app.UnixNoStat) {
-        # Use ls to get file permissions and name
-        $cmdx.Clear()
-        $lines = ls -l $path
-
-        foreach ($line in $lines) {
-            if ($line -match '^[-l].{8}x') {
-                $cmdx.Add(($line -split '\s+')[8]) | Out-Null
-            }
-        }
-    }
-
-    $fileList = Get-ChildItem -Path $path -File
-
-    foreach ($file in $fileList) {
-
-        if ($file.BaseName.StartsWith('.') -or $file.BaseName -match '\s') {
-            continue
-        }
-
-        # We only test the file, rather than any links
-        if ($IsWindows) {
-            $executable = Test-IsExecutableOnWindows $file $pathExt $app.IsUnixy
-        } else {
-            if ($app.UnixHasStat) {
-                $executable = $file.UnixMode.EndsWith('x')
-            } else {
-                $executable = $cmdx.Contains($file.Name)
-            }
-        }
-
-        if (-not $executable) {
-            continue
-        }
-
-        $command = $file.BaseName
-        $entryAdded = $false
-
-        # Links - only use soft links on Windows
-        if ($IsWindows) {
-            $followLinks = ($file.LinkType -eq 'SymbolicLink')
-        } else {
-            $followLinks = ($null -ne $file.LinkType)
-        }
-
-        if ($followLinks) {
-            foreach ($target in $file.Target) {
-                $linkTarget = Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
-
-                if ($linkTarget) {
-                    $cmdStats.Duplicates += Add-DataEntry $table $command $linkTarget
-                    $entryAdded = $true
-                }
-            }
-        }
-
-        if (-not $entryAdded) {
-            $cmdStats.Duplicates += Add-DataEntry $table $command $file
-        }
-    }
-}
-
-$cmdStats.Commands = $table.Keys.Count
+$cmdData = Get-PathCommands $validPaths $cmdStats $app
 
 # Output command entries
 $title = 'Commands found in PATH entries'
@@ -134,7 +66,7 @@ Write-Output $out
 if ($cmdStats.Duplicates) {
     $title = "Duplicate commands ($($cmdStats.Duplicates))"
 
-    $data = $table.GetEnumerator() | Sort-Object -Property key |
+    $data = $cmdData.GetEnumerator() | Sort-Object -Property key |
         Where-Object { $_.Value.Count -gt 1 } | ForEach-Object {
         Format-PathList } | Out-String
 
@@ -148,6 +80,6 @@ $title = "All commands ($($cmdStats.Commands))"
 Write-Output (Get-OutputString "See: $($app.Report)" $title)
 
 # Output all commands to report file
-$data = $table.GetEnumerator() | Sort-Object -Property key | ForEach-Object { Format-PathList} | Out-String
+$data = $cmdData.GetEnumerator() | Sort-Object -Property key | ForEach-Object { Format-PathList} | Out-String
 $out = Get-OutputString $data $title
 Add-Content -Path $app.Report -Value $out
