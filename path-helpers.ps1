@@ -1,4 +1,4 @@
-function Add-DataEntry([object]$data, [string]$command, [System.IO.FileInfo]$file) {
+function Add-CmdEntry([object]$data, [string]$command, [System.IO.FileInfo]$file) {
 
     $duplicates = 0
     $key = $command
@@ -26,6 +26,31 @@ function Add-DataEntry([object]$data, [string]$command, [System.IO.FileInfo]$fil
     }
 
     return $duplicates
+}
+
+function Add-CmdLinks([object]$data, [string]$command, [System.IO.FileInfo]$file, [object]$stats) {
+
+    $entryAdded = $false
+
+    # Links - only use soft links on Windows
+    if ($IsWindows) {
+        $followLinks = ($file.LinkType -eq 'SymbolicLink')
+    } else {
+        $followLinks = ($null -ne $file.LinkType)
+    }
+
+    if ($followLinks) {
+        foreach ($target in $file.Target) {
+            $linkTarget = Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
+
+            if ($linkTarget) {
+                $cmdStats.Duplicates += Add-CmdEntry $data $command $linkTarget
+                $entryAdded = $true
+            }
+        }
+    }
+
+    return $entryAdded
 }
 
 function Format-PathList {
@@ -94,28 +119,9 @@ function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, 
             }
 
             $command = $file.BaseName
-            $entryAdded = $false
 
-            # Links - only use soft links on Windows
-            if ($IsWindows) {
-                $followLinks = ($file.LinkType -eq 'SymbolicLink')
-            } else {
-                $followLinks = ($null -ne $file.LinkType)
-            }
-
-            if ($followLinks) {
-                foreach ($target in $file.Target) {
-                    $linkTarget = Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
-
-                    if ($linkTarget) {
-                        $cmdStats.Duplicates += Add-DataEntry $data $command $linkTarget
-                        $entryAdded = $true
-                    }
-                }
-            }
-
-            if (-not $entryAdded) {
-                $stats.Duplicates += Add-DataEntry $data $command $file
+            if (-not (Add-CmdLinks $data $command $file $stats)) {
+                $stats.Duplicates += Add-CmdEntry $data $command $file
             }
         }
     }
@@ -183,7 +189,9 @@ function Get-UnixExecutables([string]$path, [System.Collections.ArrayList]$names
 
     # Use ls to get file name and permissions
     $names.Clear()
-    $lines = ls -l $path
+
+    # Redirecting stderr will throw an error on access violations
+    $lines = ls -l $path 2> $null
 
     foreach ($line in $lines) {
         if ($line -match '^[-l].{8}x') {
