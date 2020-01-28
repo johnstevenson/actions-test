@@ -10,12 +10,11 @@ if ($null -eq $IsWindows) {
 }
 
 $app = @{
-    Module = '';
-    IsUnixy = $false;
-    Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
-    UnixHasStat = $false
-    UnixNoStat = $false
-    Report = '';
+    pathExt = @('.COM', '.EXE', '.BAT', '.CMD');
+    isUnixy = $false;
+    unixHasStat = $false
+    unixNoStat = $false
+    report = '';
 }
 
 $appIntro = Initialize-App $workDir $app
@@ -24,7 +23,7 @@ $appIntro = Initialize-App $workDir $app
 Write-Output "Generating PATH report for:"
 $out = Get-OutputList $appIntro
 
-Set-Content -Path $app.Report -Value $out
+Set-Content -Path $app.report -Value $out
 Write-Output $out
 
 # Get path entries
@@ -44,7 +43,7 @@ $out = Get-OutputList $pathStats $title
 $data = $pathData | Format-Table -Property Path, Status -AutoSize | Out-String
 $out += Get-OutputString $data
 
-Add-Content -Path $app.Report -Value $out
+Add-Content -Path $app.report -Value $out
 Write-Output $out
 
 # Get command entries
@@ -59,7 +58,7 @@ $cmdData = Get-PathCommands $validPaths $cmdStats $app
 $title = 'Commands found in PATH entries'
 $out = Get-OutputList $cmdStats $title
 
-Add-Content -Path $app.Report -Value $out
+Add-Content -Path $app.report -Value $out
 Write-Output $out
 
 # Output command duplicates
@@ -72,7 +71,7 @@ if ($cmdStats.Duplicates) {
 
     $out = Get-OutputString $data $title
 
-    Add-Content -Path $app.Report -Value $out
+    Add-Content -Path $app.report -Value $out
     Write-Output $out
 }
 
@@ -80,6 +79,8 @@ $title = "All commands ($($cmdStats.Commands))"
 Write-Output (Get-OutputString "See: $($app.Report)" $title)
 
 # Output all commands to report file
-$data = $cmdData.GetEnumerator() | Sort-Object -Property key | ForEach-Object { Format-PathList} | Out-String
+$data = $cmdData.GetEnumerator() | Sort-Object -Property key |
+    ForEach-Object { Format-PathList} | Out-String
+
 $out = Get-OutputString $data $title
-Add-Content -Path $app.Report -Value $out
+Add-Content -Path $app.report -Value $out

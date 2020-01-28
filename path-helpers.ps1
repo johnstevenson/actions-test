@@ -73,12 +73,11 @@ function Get-OutputString([string]$data, [string]$caption = '') {
 function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, [object]$config) {
 
     $data = @{}
-    $pathExt = @('.COM', '.EXE', '.BAT', '.CMD')
     $exeList = New-Object System.Collections.ArrayList
 
     foreach ($path in $paths) {
 
-        if (-not $IsWindows -and $config.UnixNoStat) {
+        if (-not $IsWindows -and $config.unixNoStat) {
             Get-UnixExecutables $path $exeList
         }
 
@@ -90,23 +89,7 @@ function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, 
                 continue
             }
 
-            # We only test the file is executable, rather than any links
-            if ($IsWindows) {
-                $executable = Test-IsExecutableOnWindows $file $pathExt $config.IsUnixy
-            } else {
-
-                if ($file.Name.Contains('.')) {
-                    continue
-                }
-
-                if ($config.UnixHasStat) {
-                    $executable = $file.UnixMode.EndsWith('x')
-                } else {
-                    $executable = $exeList.Contains($file.Name)
-                }
-            }
-
-            if (-not $executable) {
+            if (-not (Test-IsExecutable $file $config $exeList)) {
                 continue
             }
 
@@ -255,40 +238,38 @@ function Initialize-App([string]$basePath, [object]$config) {
 
     $procList = New-Object System.Collections.ArrayList
     while (Get-ProcessList $procList) {}
-
     #Write-Host ($procList | Select-Object Id, ParentId, Path | Out-String)
 
     # Get defaults and remove first item
     $pathInfo = Get-Item -LiteralPath $procList[0].Path
-    $config.Module = $pathInfo.FullName
-    $config.Report = $pathInfo.BaseName.ToLower()
-    $config.IsUnixy = $false
-    $config.UnixHasStat = $false
-    $config.UnixNoStat = $false
-
     $procList.RemoveAt(0);
 
-    if ($IsWindows) {
-        if (Test-ForWinUnixy $procList $config) {
-            $config.IsUnixy = $true
-        } else {
-            Test-ForWinNative $procList $config
-        }
-    } else {
-        $config.UnixHasStat = ($null -ne $pathInfo.UnixMode)
-        $config.UnixNoStat = (-not $config.UnixHasStat)
-        Test-ForUnix $procList $config
+    $data = @{
+        module = $pathInfo.FullName;
+        name = $pathInfo.BaseName.ToLower()
     }
 
-    $reportName = Get-ReportName $config.Report
+    if ($IsWindows) {
+        if (Test-ForWinUnixy $procList $data) {
+            $config.isUnixy = $true
+        } else {
+            Test-ForWinNative $procList $data
+        }
+    } else {
+        $config.unixHasStat = ($null -ne $pathInfo.UnixMode)
+        $config.unixNoStat = (-not $config.unixHasStat)
+        Test-ForUnix $procList $data
+    }
+
+    $reportName = Get-ReportName $data.name
     $config.Report = (Join-Path $basePath (Join-Path 'logs' $reportName))
 
     $stats = [ordered]@{
-        Module = $config.Module;
+        Module = $data.module;
         Platform = "$($PSVersionTable.Platform)";
         OS = "$($PSVersionTable.OS)";
-        IsUnixy = $config.IsUnixy;
-        Powershell = $config.Powershell
+        IsUnixy = $config.isUnixy;
+        Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
         ReportName = $reportName;
     }
 
@@ -314,28 +295,46 @@ function Resolve-PathEx([string]$path, [System.Collections.ArrayList]$errors) {
     (Join-Path $path $slash).TrimEnd($slash)
 }
 
-function Test-IsExecutableOnWindows([System.IO.FileInfo]$file, [array]$pathExt, [object]$isUnixy) {
+function Test-IsExecutable([System.IO.FileInfo]$file, [object]$config, [System.Collections.ArrayList]$exeList) {
+    # We only test the file is executable, rather than any links
+
+    if ($IsWindows) {
+        return Test-IsExecutableOnWindows $file $config
+    }
+
+    if ($file.Name.Contains('.')) {
+        return $false
+    }
+
+    if ($config.unixHasStat) {
+        return $file.UnixMode.EndsWith('x')
+    }
+
+    return $exeList.Contains($file.Name)
+}
+
+function Test-IsExecutableOnWindows([System.IO.FileInfo]$file, [object]$config) {
 
     if (-not $file.Extension) {
 
-        if (-not $isUnixy) {
+        if (-not $config.isUnixy) {
             return $false;
         }
 
         $line = Get-Content -Path $file.FullName -First 1
 
-        if ($null -ne $line -and $line.StartsWith('#!/')) {
+        if ($line -and $line.StartsWith('#!/')) {
             return $true
         }
 
-    } elseif ($pathExt -contains $file.Extension) {
+    } elseif ($config.pathExt -contains $file.Extension) {
         return $true
     }
 
     return $false
 }
 
-function Test-ForUnix([System.Collections.ArrayList]$parents, [object]$config) {
+function Test-ForUnix([System.Collections.ArrayList]$parents, [object]$data) {
 
     $lastMatch = ''
     $lastPath = ''
@@ -345,6 +344,7 @@ function Test-ForUnix([System.Collections.ArrayList]$parents, [object]$config) {
         $path = $item.Path
         $testPath = $path.ToLower()
 
+        # Looks for ...sh filenames
         if (-not ($testPath -match '/bin/(\w*sh)$')) {
             break;
         }
@@ -355,12 +355,12 @@ function Test-ForUnix([System.Collections.ArrayList]$parents, [object]$config) {
     }
 
     if ($lastMatch) {
-        $config.Module = $lastPath
-        $config.Report = $lastMatch
+        $data.module = $lastPath
+        $data.name = $lastMatch
     }
 }
 
-function Test-ForWinNative([System.Collections.ArrayList]$parents, [object]$config) {
+function Test-ForWinNative([System.Collections.ArrayList]$parents, [object]$data) {
 
     $lastMatch = ''
     $lastPath = ''
@@ -389,12 +389,12 @@ function Test-ForWinNative([System.Collections.ArrayList]$parents, [object]$conf
     }
 
     if ($lastMatch) {
-        $config.Module = $lastPath
-        $config.Report = $lastMatch
+        $data.module = $lastPath
+        $data.name = $lastMatch
     }
 }
 
-function Test-ForWinUnixy([System.Collections.ArrayList]$parents, [object]$config) {
+function Test-ForWinUnixy([System.Collections.ArrayList]$parents, [object]$data) {
 
     $lastMatch = ''
     $lastPath = ''
@@ -423,8 +423,8 @@ function Test-ForWinUnixy([System.Collections.ArrayList]$parents, [object]$confi
     }
 
     if ($lastMatch) {
-        $config.Module = $lastPath
-        $config.Report = $lastMatch
+        $data.module = $lastPath
+        $data.name = $lastMatch
     }
 
     return [bool] $lastMatch
