@@ -1,29 +1,8 @@
-language: php
+os: windows
+language: shell
 
 git:
   depth: 5
 
-cache:
-  directories:
-    - $HOME/.composer/cache
-    - vendor
-
-env:
-  - PATH=$HOME/.composer/vendor/bin:$PATH
-
-jobs:
-  include:
-    - php: 7.3
-    - php: 7.4
-  fast_finish: true
-
-before_install:
-  # disable Xdebug if present
-  - phpenv config-rm xdebug.ini || echo "Xdebug not present"
-
-install:
-  - flags="--ansi --prefer-dist --no-interaction --optimize-autoloader --no-suggest --no-progress"
-  - composer global require squizlabs/php_codesniffer $flags
-
 script:
-  - which phpcs
+  - powershell -File paths.ps1
