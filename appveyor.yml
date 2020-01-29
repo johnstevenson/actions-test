@@ -1,0 +1,10 @@
+build: false
+clone_depth: 5
+platform: x64
+
+test_script:
+  - cd %APPVEYOR_BUILD_FOLDER%
+  - ps paths.ps1
+
+artifacts:
+  - path: logs
