@@ -67,7 +67,7 @@ function Format-PathList {
         $lines += "`n" + $($format -f "", "", $dupe)
     }
 
-    $lines
+    return $lines
 }
 
 function Format-Title([string]$value) {
@@ -185,6 +185,33 @@ function Get-ReportName([string]$name) {
     return "$prefix-$name.txt"
 }
 
+function Get-RuntimeInfo([string]$module, [bool]$isUnixy, [string]$reportName) {
+
+    if ($PSVersionTable.Platform) {
+        $platform = $PSVersionTable.Platform
+        $os = $PSVersionTable.OS
+    } else {
+        $platform = 'Win32NT'
+        $os = 'Microsoft Windows ' + (Get-CimInstance Win32_OperatingSystem).Version
+    }
+
+    $stats = [ordered]@{
+        Module = $module;
+        Platform = $platform;
+        OS = $os;
+        IsUnixy = $isUnixy;
+        Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
+        ReportName = $reportName;
+    }
+
+    if (-not $IsWindows) {
+        $stats.Remove('IsUnixy')
+    }
+
+    return $stats
+}
+
+
 function Get-UnixExecutables([string]$path, [System.Collections.ArrayList]$names) {
 
     # Use ls to get file name and permissions
@@ -206,6 +233,7 @@ function Get-ValidPaths([System.Collections.ArrayList]$data, [object]$stats) {
     $allPaths = New-Object System.Collections.ArrayList
     $errors = New-Object System.Collections.ArrayList
     $pathList = $env:PATH -Split [IO.Path]::PathSeparator
+    $stats.Characters = $env:PATH.Length
 
     foreach ($path in $pathList) {
 
@@ -272,20 +300,7 @@ function Initialize-App([string]$basePath, [object]$config) {
     $reportName = Get-ReportName $data.name
     $config.Report = (Join-Path $basePath (Join-Path 'logs' $reportName))
 
-    $stats = [ordered]@{
-        Module = $data.module;
-        Platform = "$($PSVersionTable.Platform)";
-        OS = "$($PSVersionTable.OS)";
-        IsUnixy = $config.isUnixy;
-        Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
-        ReportName = $reportName;
-    }
-
-    if (-not $IsWindows) {
-        $stats.Remove('IsUnixy')
-    }
-
-    return $stats
+    return Get-RuntimeInfo $data.module $config.isUnixy $reportName
 }
 
 function Resolve-PathEx([string]$path, [System.Collections.ArrayList]$errors) {

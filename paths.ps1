@@ -32,6 +32,7 @@ $pathStats = [ordered]@{
     Valid = 0
     Missing = 0;
     Duplicates = 0;
+    Characters = 0;
 }
 
 $pathData = New-Object System.Collections.ArrayList
