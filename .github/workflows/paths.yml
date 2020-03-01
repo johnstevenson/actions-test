@@ -40,9 +40,15 @@ jobs:
           name: logs
           path: logs
 
+      - name: Exit code should be 42 - shell cmd
+        run: php -r "exit(42);"
+        shell: cmd
+        if: matrix.os == 'windows-latest'
+
       - name: Exit code should be 42 - shell bash
         run: php -r "exit(42);"
         shell: bash
+        if: always()
 
       - name: Exit code should be 42 - shell pwsh
         run: php -r "exit(42);"
