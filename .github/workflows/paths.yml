@@ -4,7 +4,7 @@ on:
   - pull_request
   - push
 name: paths
-## comment
+# comment
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -27,12 +27,12 @@ jobs:
         run: pwsh -File paths.ps1
         shell: bash
 
-      - name: Show paths from bash (Windows Git\bin\bash)
-        if: matrix.os == 'windows-latest'
-        run: |
-          set bash="C:\Program Files\Git\bin\bash.exe"
-          %bash% -c 'pwsh -File paths.ps1'
-        shell: cmd
+      #- name: Show paths from bash (Windows Git\bin\bash)
+      #  if: matrix.os == 'windows-latest'
+      #  run: |
+      #    set bash="C:\Program Files\Git\bin\bash.exe"
+      #    %bash% -c 'pwsh -File paths.ps1'
+      #  shell: cmd
 
       - name: Upload reports
         uses: actions/upload-artifact@v1
