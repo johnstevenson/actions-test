@@ -11,8 +11,7 @@ branches:
     - master
 
 test_script:
-  - cd %APPVEYOR_BUILD_FOLDER%
-  - ps: .\paths.ps1
+  - pwsh: .\paths.ps1
   - sh: pwsh -File paths.ps1
 
 artifacts:
