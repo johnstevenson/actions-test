@@ -142,6 +142,7 @@ function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, 
 
 function Get-ProcessList([System.Collections.ArrayList]$list) {
 
+    $id = $null
     $path = $null
     $parentId = $null
 
@@ -151,7 +152,7 @@ function Get-ProcessList([System.Collections.ArrayList]$list) {
         $id = $list[$list.Count - 1].ParentId
     }
 
-    if (-not $id) {
+    if ($null -eq $id) {
         return $false
     }
 
@@ -182,7 +183,7 @@ function Get-ProcessList([System.Collections.ArrayList]$list) {
     $path = [System.IO.Path]::GetFullPath($path)
 
     $list.Add(@{ Id = $id; Path = $path; ParentId = $parentId }) | Out-Null
-    return ($null -ne $parentId -and 1 -ne $parentId)
+    return ($null -ne $parentId)# -and 1 -ne $parentId)
 }
 
 function Get-ReportName([string]$name) {
