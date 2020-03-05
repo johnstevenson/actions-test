@@ -1,3 +1,4 @@
+#Requires -Version 5.0
 $ErrorActionPreference = 'Stop';
 
 $workDir = Split-Path $MyInvocation.MyCommand.Definition
@@ -22,19 +23,13 @@ $appIntro = Initialize-App $workDir $app
 # Output intro
 Write-Output "Generating PATH report`n"
 
-# Output process tree
-$title = "Process tree ($($app.procTree.Count))"
-$data = $app.procTree | Out-String
-$out = Get-OutputString $data $title
-
-Set-Content -Path $app.report -Value $out
-Write-Output $out
-
 # Output runtime
 $title = 'Runtime information'
 $out = Get-OutputList $appIntro $title
+$data = $app.procTree | Format-Table -Property Pid, ProcessName -AutoSize| Out-String
+$out += Get-OutputString $data
 
-Add-Content -Path $app.report -Value $out
+Set-Content -Path $app.report -Value $out
 Write-Output $out
 
 # Get path entries
