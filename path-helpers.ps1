@@ -174,6 +174,10 @@ function Get-ProcessList([System.Collections.ArrayList]$list) {
         $parentId = $proc.ParentProcessId
     }
 
+    if ($list.Count -eq 0 -and $IsWindows) {
+        Write-Host "Id: $id, ParentId: $parentId, Path: $path"
+    }
+
     if (-not $path) {
         return $false
     }
