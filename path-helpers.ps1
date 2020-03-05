@@ -292,13 +292,13 @@ function Get-ValidPaths([System.Collections.ArrayList]$data, [object]$stats) {
 function Initialize-App([string]$basePath, [object]$config) {
 
     $procList = New-Object System.Collections.ArrayList
+    while (Get-ProcessList $procList) {}
+
     $config.procTree = New-Object System.Collections.ArrayList
 
-    while (Get-ProcessList $procList) {
-        $lastIndex = $procList.Count - 1
-        $config.procTree.Add($procList[$lastIndex].Path) | Out-Null
+    foreach ($proc in $procList) {
+        $config.procTree.Add($proc.Path) | Out-Null
     }
-
     $config.procTree.Reverse()
 
     # Get defaults and remove first item
