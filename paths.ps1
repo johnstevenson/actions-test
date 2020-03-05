@@ -20,23 +20,19 @@ $app = @{
 $appIntro = Initialize-App $workDir $app
 
 # Output intro
-#Write-Output "Generating PATH report for:"
-#$out = Get-OutputList $appIntro
-
-# Output intro
-Write-Output "Generating PATH report for:`n"
-
-# Output rutime
-$title = 'Runtime information'
-$out = Get-OutputList $appIntro $title
-
-Set-Content -Path $app.report -Value $out
-Write-Output $out
+Write-Output "Generating PATH report`n"
 
 # Output process tree
 $title = "Process tree ($($app.procTree.Count))"
 $data = $app.procTree | Out-String
 $out = Get-OutputString $data $title
+
+Set-Content -Path $app.report -Value $out
+Write-Output $out
+
+# Output runtime
+$title = 'Runtime information'
+$out = Get-OutputList $appIntro $title
 
 Add-Content -Path $app.report -Value $out
 Write-Output $out
