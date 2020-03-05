@@ -142,6 +142,7 @@ function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, 
 
 function Get-ProcessList([System.Collections.ArrayList]$list) {
 
+    $path = $null
     $parentId = $null
 
     if ($list.Count -eq 0) {
@@ -174,13 +175,11 @@ function Get-ProcessList([System.Collections.ArrayList]$list) {
         $parentId = $proc.ParentProcessId
     }
 
-    if ($list.Count -eq 0 -and $IsWindows) {
-        Write-Host "Id: $id, ParentId: $parentId, Path: $path"
-    }
-
     if (-not $path) {
         return $false
     }
+
+    $path = [System.IO.Path]::GetFullPath($path)
 
     $list.Add(@{ Id = $id; Path = $path; ParentId = $parentId }) | Out-Null
     return ($null -ne $parentId -and 1 -ne $parentId)
@@ -293,8 +292,14 @@ function Get-ValidPaths([System.Collections.ArrayList]$data, [object]$stats) {
 function Initialize-App([string]$basePath, [object]$config) {
 
     $procList = New-Object System.Collections.ArrayList
-    while (Get-ProcessList $procList) {}
-    Write-Host ($procList | Select-Object Id, ParentId, Path | Out-String)
+    $config.procTree = New-Object System.Collections.ArrayList
+
+    while (Get-ProcessList $procList) {
+        $lastIndex = $procList.Count - 1
+        $config.procTree.Add($procList[$lastIndex].Path) | Out-Null
+    }
+
+    $config.procTree.Reverse()
 
     # Get defaults and remove first item
     $pathInfo = Get-Item -LiteralPath $procList[0].Path

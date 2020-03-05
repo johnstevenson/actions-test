@@ -14,15 +14,31 @@ $app = @{
     isUnixy = $false;                               # Windows unixy shell
     unixHasStat = $false                            # If FileInfo has UnixMode member
     report = '';                                    # The report name based on the shell
+    procTree = $null                                # The process tree
 }
 
 $appIntro = Initialize-App $workDir $app
 
 # Output intro
-Write-Output "Generating PATH report for:"
-$out = Get-OutputList $appIntro
+#Write-Output "Generating PATH report for:"
+#$out = Get-OutputList $appIntro
+
+# Output intro
+Write-Output "Generating PATH report for:`n"
+
+# Output rutime
+$title = 'Runtime information'
+$out = Get-OutputList $appIntro $title
 
 Set-Content -Path $app.report -Value $out
+Write-Output $out
+
+# Output process tree
+$title = "Process tree ($($app.procTree.Count))"
+$data = $app.procTree | Out-String
+$out = Get-OutputString $data $title
+
+Add-Content -Path $app.report -Value $out
 Write-Output $out
 
 # Get path entries
