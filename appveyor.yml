@@ -11,7 +11,7 @@ branches:
     - master
 
 test_script:
-  - pwsh: .\paths.ps1
+  - ps: .\paths.ps1
   - sh: pwsh -File paths.ps1
 
 artifacts:

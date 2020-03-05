@@ -10,11 +10,10 @@ if ($null -eq $IsWindows) {
 }
 
 $app = @{
-    pathExt = @('.COM', '.EXE', '.BAT', '.CMD');
-    isUnixy = $false;
-    unixHasStat = $false
-    unixNoStat = $false
-    report = '';
+    pathExt = @('.COM', '.EXE', '.BAT', '.CMD');    # A stripped down set
+    isUnixy = $false;                               # Windows unixy shell
+    unixHasStat = $false                            # If FileInfo has UnixMode member
+    report = '';                                    # The report name based on the shell
 }
 
 $appIntro = Initialize-App $workDir $app

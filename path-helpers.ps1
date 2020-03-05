@@ -99,11 +99,17 @@ function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, 
 
     $data = @{}
     $exeList = New-Object System.Collections.ArrayList
+    $errors = 0
 
     foreach ($path in $paths) {
 
-        if (-not $IsWindows -and $config.unixNoStat) {
-            Get-UnixExecutables $path $exeList
+        if (-not $IsWindows -and -not $config.unixHasStat) {
+
+            if (-not (Get-UnixExecutables $path $exeList)) {
+                $errors += 1
+                continue
+            }
+
         }
 
         $fileList = Get-ChildItem -Path $path -File
@@ -127,6 +133,10 @@ function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, 
     }
 
     $stats.Commands = $data.Keys.Count
+
+    if ($errors -ne 0) {
+        $stats.Add('PermissionErrors', $errors)
+    }
     return $data
 }
 
@@ -198,7 +208,7 @@ function Get-RuntimeInfo([string]$module, [bool]$isUnixy, [string]$reportName) {
     $stats = [ordered]@{
         Module = $module;
         Platform = $platform;
-        OS = $os;
+        OSVersion = $os;
         IsUnixy = $isUnixy;
         Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
         ReportName = $reportName;
@@ -218,13 +228,19 @@ function Get-UnixExecutables([string]$path, [System.Collections.ArrayList]$names
     $names.Clear()
 
     # Redirecting stderr will throw an error on access violations
-    $lines = ls -l $path 2> $null
+    try {
+        $lines = ls -l $path 2> $null
+    } catch {
+        return $false
+    }
 
     foreach ($line in $lines) {
         if ($line -match '^[-l].{8}x') {
             $names.Add(($line -split '\s+')[8]) | Out-Null
         }
     }
+
+    return $true
 }
 
 function Get-ValidPaths([System.Collections.ArrayList]$data, [object]$stats) {
@@ -274,7 +290,7 @@ function Initialize-App([string]$basePath, [object]$config) {
 
     $procList = New-Object System.Collections.ArrayList
     while (Get-ProcessList $procList) {}
-    #Write-Host ($procList | Select-Object Id, ParentId, Path | Out-String)
+    Write-Host ($procList | Select-Object Id, ParentId, Path | Out-String)
 
     # Get defaults and remove first item
     $pathInfo = Get-Item -LiteralPath $procList[0].Path
@@ -286,15 +302,14 @@ function Initialize-App([string]$basePath, [object]$config) {
     }
 
     if ($IsWindows) {
-        if (Test-ForWinUnixy $procList $data) {
+        if (Test-WinUnixyShell $procList $data) {
             $config.isUnixy = $true
         } else {
-            Test-ForWinNative $procList $data
+            Test-WinNativeShell $procList $data
         }
     } else {
         $config.unixHasStat = ($null -ne $pathInfo.UnixMode)
-        $config.unixNoStat = (-not $config.unixHasStat)
-        Test-ForUnix $procList $data
+        Test-UnixShell $procList $data
     }
 
     $reportName = Get-ReportName $data.name
@@ -340,10 +355,12 @@ function Test-IsExecutableOnWindows([System.IO.FileInfo]$file, [object]$config) 
 
     if (-not $file.Extension) {
 
+        # No file extension, so only check unixy
         if (-not $config.isUnixy) {
             return $false;
         }
 
+        # Look for a shebang on the first line
         $line = Get-Content -Path $file.FullName -First 1
 
         if ($line -and $line.StartsWith('#!/')) {
@@ -357,7 +374,7 @@ function Test-IsExecutableOnWindows([System.IO.FileInfo]$file, [object]$config) 
     return $false
 }
 
-function Test-ForUnix([System.Collections.ArrayList]$parents, [object]$data) {
+function Test-UnixShell([System.Collections.ArrayList]$parents, [object]$data) {
 
     $lastMatch = ''
     $lastPath = ''
@@ -383,7 +400,7 @@ function Test-ForUnix([System.Collections.ArrayList]$parents, [object]$data) {
     }
 }
 
-function Test-ForWinNative([System.Collections.ArrayList]$parents, [object]$data) {
+function Test-WinNativeShell([System.Collections.ArrayList]$parents, [object]$data) {
 
     $lastMatch = ''
     $lastPath = ''
@@ -417,7 +434,7 @@ function Test-ForWinNative([System.Collections.ArrayList]$parents, [object]$data
     }
 }
 
-function Test-ForWinUnixy([System.Collections.ArrayList]$parents, [object]$data) {
+function Test-WinUnixyShell([System.Collections.ArrayList]$parents, [object]$data) {
 
     $lastMatch = ''
     $lastPath = ''
