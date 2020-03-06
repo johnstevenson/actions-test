@@ -63,8 +63,7 @@ function Format-Path([string]$path, [string]$format) {
 
     if ($IsWindows -and $path.Contains('|')) {
         $parts = $path.Split('|')
-        $shim = "{0}" -f $parts[1]
-        return "* {0} =>`n" -f $parts[0] + $($format -f "", "", $shim)
+        return "** {0} =>`n" -f $parts[0] + $($format -f "", "", $parts[1])
     }
 
     return $path
