@@ -110,7 +110,8 @@ function Get-ChocoShim([string] $path) {
         return $path
     }
 
-    if (![System.IO.Path]::IsPathFullyQualified($target)) {
+    #if (![System.IO.Path]::IsPathFullyQualified($target)) {
+    if (![System.IO.Path]::IsPathRooted($target)) {
         $target = [System.IO.Path]::Combine($app.chocoBin, $target)
     }
 
