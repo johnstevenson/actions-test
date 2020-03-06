@@ -13,19 +13,20 @@ if ($null -eq $IsWindows) {
 $app = @{
     pathExt = @('.COM', '.EXE', '.BAT', '.CMD');    # A stripped down set
     isUnixy = $false;                               # Windows unixy shell
+    chocoBin = ''                                   # Chocolatey bin directory if installed on Windows
     unixHasStat = $false                            # If FileInfo has UnixMode member
     report = '';                                    # The report name based on the shell
     procTree = $null                                # The process tree
 }
 
-$appIntro = Initialize-App $workDir $app
+$runtime = Initialize-App $workDir $app
 
 # Output intro
-Write-Output "Generating PATH report`n"
+Write-Output "Generating PATH report: $($runtime.ReportName)`n"
 
 # Output runtime
 $title = 'Runtime information'
-$out = Get-OutputList $appIntro $title
+$out = Get-OutputList $runtime $title
 $data = $app.procTree | Format-Table -Property Pid, ProcessName -AutoSize| Out-String
 $out += Get-OutputString $data
 

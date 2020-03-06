@@ -2,9 +2,15 @@ function Add-CmdEntry([object]$data, [string]$command, [System.IO.FileInfo]$file
 
     $duplicates = 0
     $key = $command
+    $path = $file.FullName
 
     if ($IsWindows) {
         $key = $key.ToLower()
+
+        # $app is a global - change
+        if ($file.DirectoryName -eq $app.chocoBin) {
+            $path = Get-ChocoShim $path
+        }
     }
 
     if ($data.Contains($key)) {
@@ -15,13 +21,13 @@ function Add-CmdEntry([object]$data, [string]$command, [System.IO.FileInfo]$file
         }
 
         ++$item.Count
-        $item.Dupes += $file.FullName
+        $item.Dupes += $path
         $item.Unique += $file.DirectoryName
         $data.Set_Item($key, $item)
         $duplicates = 1
 
     } else {
-        $value = @{ Path = $file.FullName; Count = 1; Dupes = @(); Unique = @($file.DirectoryName) }
+        $value = @{ Path = $path; Count = 1; Dupes = @(); Unique = @($file.DirectoryName) }
         $data.Add($key, $value)
     }
 
@@ -44,13 +50,24 @@ function Add-CmdLinks([object]$data, [string]$command, [System.IO.FileInfo]$file
             $linkTarget = Get-Item -LiteralPath $target -ErrorAction SilentlyContinue
 
             if ($linkTarget) {
-                $cmdStats.Duplicates += Add-CmdEntry $data $command $linkTarget
+                $stats.Duplicates += Add-CmdEntry $data $command $linkTarget
                 $entryAdded = $true
             }
         }
     }
 
     return $entryAdded
+}
+
+function Format-Path([string]$path, [string]$format) {
+
+    if ($IsWindows -and $path.Contains('|')) {
+        $parts = $path.Split('|')
+        $shim = "{0}" -f $parts[1]
+        return "* {0} =>`n" -f $parts[0] + $($format -f "", "", $shim)
+    }
+
+    return $path
 }
 
 function Format-PathList {
@@ -61,10 +78,12 @@ function Format-PathList {
     }
 
     $format = "{0,-25} {1,-5} {2}"
-    $lines = $format -f $cmd, $("({0})" -f $_.Value.Count), $_.Value.Path
+    $path = Format-Path $_.Value.Path $format
+    $lines = $format -f $cmd, $("({0})" -f $_.Value.Count), $path
 
     foreach ($dupe in $_.Value.Dupes) {
-        $lines += "`n" + $($format -f "", "", $dupe)
+        $path = Format-Path $dupe $format
+        $lines += "`n" + $($format -f "", "", $path)
     }
 
     return $lines
@@ -76,6 +95,29 @@ function Format-Title([string]$value) {
     $parts = $value -split $sepRegex
 
     return ($parts -join '-').Trim('-') -replace '_', '-'
+}
+
+function Get-ChocoShim([string] $path) {
+
+    $verInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($path)
+
+    if (!($verInfo.FileDescription -match 'shim')) {
+        return $path
+    }
+
+    $target = matchFile $file.FullName
+
+    if ($null -eq $target) {
+        return $path
+    }
+
+    if (![System.IO.Path]::IsPathFullyQualified($target)) {
+        $target = [System.IO.Path]::Combine($app.chocoBin, $target)
+    }
+
+    $target = [System.IO.Path]::GetFullPath($target)
+
+    return "$path|$target"
 }
 
 function Get-OutputList([object]$data, [string]$caption = '') {
@@ -99,11 +141,12 @@ function Get-PathCommands([System.Collections.ArrayList]$paths, [object]$stats, 
 
     $data = @{}
     $exeList = New-Object System.Collections.ArrayList
+    $unixNoStat = -not $IsWindows -and -not $config.unixHasStat
     $errors = 0
 
     foreach ($path in $paths) {
 
-        if (-not $IsWindows -and -not $config.unixHasStat) {
+        if ($unixNoStat) {
 
             if (-not (Get-UnixExecutables $path $exeList)) {
                 $errors += 1
@@ -200,7 +243,7 @@ function Get-ReportName([string]$name) {
     return "$prefix-$name.txt"
 }
 
-function Get-RuntimeInfo([string]$module, [bool]$isUnixy, [string]$reportName) {
+function Get-RuntimeInfo([string]$module, [object]$config, [string]$reportName) {
 
     if ($PSVersionTable.Platform) {
         $platform = $PSVersionTable.Platform
@@ -210,20 +253,22 @@ function Get-RuntimeInfo([string]$module, [bool]$isUnixy, [string]$reportName) {
         $os = 'Microsoft Windows ' + (Get-CimInstance Win32_OperatingSystem).Version
     }
 
-    $stats = [ordered]@{
+    $info = [ordered]@{
         Module = $module;
         Platform = $platform;
         OSVersion = $os;
-        IsUnixy = $isUnixy;
+        IsUnixy = $config.isUnixy;
+        ChocolateyBin = $config.chocoBin;
         Powershell = "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)"
         ReportName = $reportName;
     }
 
     if (-not $IsWindows) {
-        $stats.Remove('IsUnixy')
+        $info.Remove('IsUnixy')
+        $info.Remove('ChocoBin')
     }
 
-    return $stats
+    return $info
 }
 
 
@@ -329,9 +374,84 @@ function Initialize-App([string]$basePath, [object]$config) {
     }
 
     $reportName = Get-ReportName $data.name
-    $config.Report = (Join-Path $basePath (Join-Path 'logs' $reportName))
+    $config.report = (Join-Path $basePath (Join-Path 'logs' $reportName))
 
-    return Get-RuntimeInfo $data.module $config.isUnixy $reportName
+    if ($IsWindows) {
+        $choco = $env:ChocolateyInstall
+
+        if (-not $choco) {
+            $choco = Join-Path $env:ProgramData 'Chocolatey'
+
+            if (-not (Test-Path $choco)) {
+                $choco = ''
+            }
+        }
+
+        if ($choco) {
+            $choco = Join-Path $choco 'bin'
+        }
+
+        $config.chocoBin = $choco
+    }
+
+    return Get-RuntimeInfo $data.module $config $reportName
+}
+
+function matchBinary([array]$bytes, [string]$pattern, [int]$startIndex) {
+
+    [array]$pattern = [System.Text.Encoding]::Unicode.GetBytes($pattern)
+    $max = $bytes.Count - $pattern.Count + 1
+
+    $i = $startIndex
+    $m = 0
+    $found = $false
+    $index = 0
+
+    while ($i -lt $max) {
+
+        if ($bytes[$i] -eq $pattern[$m]) {
+            ++$m
+
+            if ($m -eq $pattern.Count) {
+                $found = $true
+                $index = $i - $pattern.Count + 1
+                break
+            }
+
+        } elseif ($m -gt 0) {
+            $i -= $m
+            $m = 0
+        }
+
+        ++$i
+    }
+
+    return @{ Found = $found; Index = $index }
+}
+
+function matchFile([string]$filename) {
+
+    [array]$bin = [System.IO.File]::ReadAllBytes($filename)
+    $match = $null
+
+    $initPattern = "file at '"
+    $result = matchBinary $bin $initPattern 0
+
+    if (!$result.Found) {
+        return $match
+    }
+
+    $start = $result.Index + ($initPattern.Length * 2)
+    $endPattern = "'"
+    $result = matchBinary $bin $endPattern $start
+
+    if (!$result.Found) {
+        return $match
+    }
+
+    $end = $result.Index - 1
+
+    return [System.Text.Encoding]::Unicode.GetString($bin[$start..$end])
 }
 
 function Resolve-PathEx([string]$path, [System.Collections.ArrayList]$errors) {
